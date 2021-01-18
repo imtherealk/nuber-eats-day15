@@ -293,6 +293,98 @@ describe('App (e2e)', () => {
           });
       });
     });
-    it.todo('editProfile');
+
+    describe('editProfile', () => {
+      const NEW_EMAIL = 'imtherealk@gmail.com';
+      const NEW_PASSWORD = '54321';
+
+      it('should change email', () => {
+        return privateTest(
+          `mutation {
+            editProfile(input: {email: "${NEW_EMAIL}"}) {
+              ok
+              error
+            }
+          }`,
+        )
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { editProfile },
+              },
+            } = res;
+            expect(editProfile).toEqual({
+              ok: true,
+              error: null,
+            });
+          });
+      });
+
+      it('should have new email', () => {
+        return privateTest(`{ me { email } }`)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { me },
+              },
+            } = res;
+            expect(me.email).toBe(NEW_EMAIL);
+          });
+      });
+
+      it('should change password', () => {
+        return privateTest(
+          `mutation {
+            editProfile(input: {password: "${NEW_PASSWORD}"}) {
+              ok
+              error
+            }
+          }`,
+        )
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { editProfile },
+              },
+            } = res;
+            expect(editProfile).toEqual({
+              ok: true,
+              error: null,
+            });
+          });
+      });
+      it('should login with new email and password', () => {
+        return publicTest(`
+          mutation {
+            login(input:{
+              email: "${NEW_EMAIL}",
+              password: "${NEW_PASSWORD}",
+            }
+            ){
+              ok
+              error
+              token
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { login },
+              },
+            } = res;
+            expect(login).toEqual({
+              ok: true,
+              error: null,
+              token: expect.any(String),
+            });
+            jwtToken = login.token;
+          });
+      });
+    });
   });
 });
