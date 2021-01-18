@@ -16,6 +16,7 @@ const testUser = {
 };
 
 const testPodcast = {
+  id: null,
   title: 'test-title',
   category: 'test-category',
 };
@@ -414,18 +415,12 @@ describe('App (e2e)', () => {
               error: null,
               id: expect.any(Number),
             });
+            testPodcast.id = createPodcast.id;
           });
       });
     });
 
     describe('getAllPodcasts', () => {
-      let firstPodcastId: number;
-
-      beforeAll(async () => {
-        const [podcast] = await podcastsRepository.find();
-        firstPodcastId = podcast.id;
-      });
-
       it('should get all podcasts', () => {
         return publicTest(`
           {
@@ -451,7 +446,7 @@ describe('App (e2e)', () => {
             expect(getAllPodcasts.error).toBe(null);
             expect(getAllPodcasts.podcasts).toEqual([
               {
-                id: firstPodcastId,
+                id: testPodcast.id,
                 title: testPodcast.title,
                 category: testPodcast.category,
               },
@@ -531,7 +526,72 @@ describe('App (e2e)', () => {
       });
     });
 
-    it.todo('updatePodcast');
+    describe('updatePodcast', () => {
+      const NEW_TITLE = 'new-title';
+      const NEW_CATEGORY = 'new-category';
+      const RATING = 3;
+
+      it('should update title, category and rating', () => {
+        return privateTest(`
+          mutation {
+            updatePodcast(input:{
+              id: ${testPodcast.id}
+              payload:{
+                title: "${NEW_TITLE}"
+                category: "${NEW_CATEGORY}"
+                rating: ${RATING}
+              }
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { updatePodcast },
+              },
+            } = res;
+            expect(updatePodcast.ok).toBe(true);
+            expect(updatePodcast.error).toBe(null);
+          });
+      });
+
+      it('should have new information', () => {
+        return publicTest(`
+          {
+            getPodcast(input: {id: ${testPodcast.id}}) {
+              ok
+              error
+              podcast {
+                id
+                title
+                category
+                rating
+              }
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { getPodcast },
+              },
+            } = res;
+            expect(getPodcast.ok).toBe(true);
+            expect(getPodcast.error).toBe(null);
+            expect(getPodcast.podcast).toEqual({
+              id: testPodcast.id,
+              title: NEW_TITLE,
+              category: NEW_CATEGORY,
+              rating: RATING,
+            });
+          });
+      });
+    });
     it.todo('createEpisode');
     it.todo('getEpisodes');
     it.todo('updateEpisode');
