@@ -107,7 +107,67 @@ describe('App (e2e)', () => {
           });
       });
     });
-    it.todo('login');
+
+    describe('login', () => {
+      it('should login with correct credentials', () => {
+        return publicTest(`
+          mutation {
+            login(input:{
+              email: "${testUser.email}",
+              password: "${testUser.password}",
+            }
+            ){
+              ok
+              error
+              token
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { login },
+              },
+            } = res;
+            expect(login).toEqual({
+              ok: true,
+              error: null,
+              token: expect.any(String),
+            });
+            jwtToken = login.token;
+          });
+      });
+
+      it('should not be able to login with wrong credentials.', () => {
+        return publicTest(`
+          mutation {
+            login(input:{
+              email: "${testUser.email}",
+              password: "fail",
+            }
+            ){
+              ok
+              error
+              token
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { login },
+              },
+            } = res;
+            expect(login).toEqual({
+              ok: false,
+              error: 'Wrong password',
+              token: null,
+            });
+          });
+      });
+    });
     it.todo('editProfile');
   });
 });
