@@ -6,6 +6,7 @@ import { getConnection, Repository } from 'typeorm';
 import { User, UserRole } from 'src/users/entities/user.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Podcast } from 'src/podcast/entities/podcast.entity';
+import { Episode } from 'src/podcast/entities/episode.entity';
 
 const GRAPHQL_ENDPOINT = '/graphql';
 
@@ -21,10 +22,17 @@ const testPodcast = {
   category: 'test-category',
 };
 
+const testEpisode = {
+  id: null,
+  title: 'test-ep-title',
+  category: 'test-ep-category',
+};
+
 describe('App (e2e)', () => {
   let app: INestApplication;
   let usersRepository: Repository<User>;
   let podcastsRepository: Repository<Podcast>;
+  let episodesRepository: Repository<Episode>;
   let jwtToken: string;
 
   const baseTest = () => request(app.getHttpServer()).post(GRAPHQL_ENDPOINT);
@@ -43,6 +51,9 @@ describe('App (e2e)', () => {
     );
     podcastsRepository = moduleFixture.get<Repository<Podcast>>(
       getRepositoryToken(Podcast),
+    );
+    episodesRepository = moduleFixture.get<Repository<Episode>>(
+      getRepositoryToken(Episode),
     );
     await app.init();
   });
@@ -591,11 +602,356 @@ describe('App (e2e)', () => {
             });
           });
       });
+
+      it('should fail if podcast not found', () => {
+        return privateTest(`
+          mutation {
+            updatePodcast(input:{
+              id: 999
+              payload:{
+                title: "${NEW_TITLE}"
+                category: "${NEW_CATEGORY}"
+                rating: ${RATING}
+              }
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { updatePodcast },
+              },
+            } = res;
+            expect(updatePodcast.ok).toBe(false);
+            expect(updatePodcast.error).toBe('Podcast with id 999 not found');
+          });
+      });
     });
-    it.todo('createEpisode');
-    it.todo('getEpisodes');
-    it.todo('updateEpisode');
-    it.todo('deleteEpisode');
-    it.todo('deletePodcast');
+
+    describe('createEpisode', () => {
+      it('should create episode', () => {
+        return privateTest(`
+          mutation {
+            createEpisode(input:{
+              podcastId: ${testPodcast.id}
+              title: "${testEpisode.title}"
+              category: "${testEpisode.category}"
+            }){
+              ok
+              error
+              id
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { createEpisode },
+              },
+            } = res;
+            expect(createEpisode.ok).toBe(true);
+            expect(createEpisode.error).toBe(null);
+            expect(createEpisode.id).toEqual(expect.any(Number));
+            testEpisode.id = createEpisode.id;
+          });
+      });
+      it('should fail if podcast not found', () => {
+        return privateTest(`
+          mutation {
+            createEpisode(input:{
+              podcastId: 999
+              title: "${testEpisode.title}"
+              category: "${testEpisode.category}"
+            }){
+              ok
+              error
+              id
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { createEpisode },
+              },
+            } = res;
+            expect(createEpisode.ok).toBe(false);
+            expect(createEpisode.error).toBe('Podcast with id 999 not found');
+            expect(createEpisode.id).toEqual(null);
+          });
+      });
+    });
+
+    describe('getEpisodes', () => {
+      it('should get all episodes of podcast', () => {
+        return publicTest(`
+          {
+            getEpisodes(input:{
+              id: ${testPodcast.id}
+            }){
+              ok
+              error
+              episodes {
+                id
+                title
+                category
+              }
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { getEpisodes },
+              },
+            } = res;
+            expect(getEpisodes.ok).toBe(true);
+            expect(getEpisodes.error).toBe(null);
+            expect(getEpisodes.episodes).toEqual([testEpisode]);
+          });
+      });
+      it('should fail if podcast not found', () => {
+        return publicTest(`
+          {
+            getEpisodes(input:{
+              id: 999
+            }){
+              ok
+              error
+              episodes {
+                id
+                title
+                category
+              }
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { getEpisodes },
+              },
+            } = res;
+            expect(getEpisodes.ok).toBe(false);
+            expect(getEpisodes.error).toBe('Podcast with id 999 not found');
+            expect(getEpisodes.episodes).toBe(null);
+          });
+      });
+    });
+
+    describe('updateEpisode', () => {
+      const NEW_TITLE = 'new-title';
+      const NEW_CATEGORY = 'new-category';
+
+      it('should update title, category and rating', () => {
+        return privateTest(`
+          mutation {
+            updateEpisode(input:{
+              podcastId: ${testPodcast.id}
+              episodeId: ${testEpisode.id}
+              title: "${NEW_TITLE}"
+              category: "${NEW_CATEGORY}"
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { updateEpisode },
+              },
+            } = res;
+            expect(updateEpisode.ok).toBe(true);
+            expect(updateEpisode.error).toBe(null);
+          });
+      });
+
+      it('should fail if podcast not found', () => {
+        return privateTest(`
+          mutation {
+            updateEpisode(input:{
+              podcastId: 999
+              episodeId: ${testEpisode.id}
+              title: "${NEW_TITLE}"
+              category: "${NEW_CATEGORY}"
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { updateEpisode },
+              },
+            } = res;
+            expect(updateEpisode.ok).toBe(false);
+            expect(updateEpisode.error).toBe('Podcast with id 999 not found');
+          });
+      });
+
+      it('should fail if episode not found', () => {
+        return privateTest(`
+          mutation {
+            updateEpisode(input:{
+              podcastId: ${testPodcast.id}
+              episodeId: 999
+              title: "${NEW_TITLE}"
+              category: "${NEW_CATEGORY}"
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { updateEpisode },
+              },
+            } = res;
+            expect(updateEpisode.ok).toBe(false);
+            expect(updateEpisode.error).toBe(
+              `Episode with id 999 not found in podcast with id ${testPodcast.id}`,
+            );
+          });
+      });
+    });
+    describe('deleteEpisode', () => {
+      it('should fail if podcast not found', () => {
+        return privateTest(`
+          mutation { 
+            deleteEpisode(input:{
+              podcastId: 999
+              episodeId: ${testEpisode.id}
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { deleteEpisode },
+              },
+            } = res;
+            expect(deleteEpisode.ok).toBe(false);
+            expect(deleteEpisode.error).toBe('Podcast with id 999 not found');
+          });
+      });
+
+      it('should fail if episode not found', () => {
+        return privateTest(`
+          mutation { 
+            deleteEpisode(input:{
+              podcastId: ${testPodcast.id}
+              episodeId: 999
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { deleteEpisode },
+              },
+            } = res;
+            expect(deleteEpisode.ok).toBe(false);
+            expect(deleteEpisode.error).toBe(
+              `Episode with id 999 not found in podcast with id ${testPodcast.id}`,
+            );
+          });
+      });
+
+      it('should delete episode of podcast', () => {
+        return privateTest(`
+          mutation { 
+            deleteEpisode(input:{
+              podcastId: ${testPodcast.id}
+              episodeId: ${testEpisode.id}
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { deleteEpisode },
+              },
+            } = res;
+            expect(deleteEpisode.ok).toBe(true);
+            expect(deleteEpisode.error).toBe(null);
+          });
+      });
+    });
+    describe('deletePodcast', () => {
+      it('should fail if podcast not found', () => {
+        return privateTest(`
+          mutation {
+            deletePodcast(input:{
+              id: 999
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { deletePodcast },
+              },
+            } = res;
+            expect(deletePodcast.ok).toBe(false);
+            expect(deletePodcast.error).toBe(`Podcast with id 999 not found`);
+          });
+      });
+
+      it('should delete a podcast', () => {
+        return privateTest(`
+          mutation {
+            deletePodcast(input:{
+              id: ${testPodcast.id}
+            }){
+              ok
+              error
+            }
+          }
+        `)
+          .expect(200)
+          .expect(res => {
+            const {
+              body: {
+                data: { deletePodcast },
+              },
+            } = res;
+            expect(deletePodcast.ok).toBe(true);
+            expect(deletePodcast.error).toBe(null);
+          });
+      });
+    });
   });
 });
